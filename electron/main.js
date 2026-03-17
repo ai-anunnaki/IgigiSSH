@@ -67,12 +67,20 @@ ipcMain.handle('ssh:connect', async (event, config) => {
         let outputBuffer = ''
         let lastCwd = null
 
-        // 连接后立即注入 PROMPT_COMMAND 来广播 OSC7 目录信息
+        // 连接后注入 PROMPT_COMMAND，每次 prompt 广播当前目录（OSC7）
         setTimeout(() => {
-          stream.write(
-            'export PROMPT_COMMAND=\'printf "\\033]7;file://$HOSTNAME$PWD\\033\\\\"\'$\'\\n\'' +
-            ' 2>/dev/null; echo\n'
-          )
+          // 远程 shell 执行的命令，使用 Buffer 避免本地 shell 变量解析误判
+          // 实际写入的内容：export PROMPT_COMMAND='printf "\033]7;file://${HOSTNAME}${PWD}\033\\"'
+          const osc7Cmd = Buffer.from([
+            'export PROMPT_COMMAND=',
+            "'",
+            'printf "\\033]7;file://',
+            '${HOSTNAME}${PWD}',
+            '\\033\\\\"',
+            "'",
+            '\n'
+          ].join('')).toString()
+          stream.write(osc7Cmd)
         }, 500)
 
         stream.on('data', (data) => {
