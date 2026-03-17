@@ -1,0 +1,70 @@
+{
+  "name": "luci-ssh-client",
+  "version": "1.0.0",
+  "description": "鸬鹚SSH客户端 - 简洁、跨平台的SSH客户端，支持拖拽文件传输",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:react\" \"wait-on http://localhost:3000 && npm run dev:electron\"",
+    "dev:react": "react-scripts start",
+    "dev:electron": "ELECTRON_START_URL=http://localhost:3000 electron .",
+    "build": "react-scripts build && npm run build:electron",
+    "build:electron": "electron-builder",
+    "build:all": "electron-builder --mac --win --linux",
+    "start": "electron ."
+  },
+  "dependencies": {
+    "@xterm/xterm": "^5.3.0",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/addon-web-links": "^0.11.0",
+    "lucide-react": "^0.344.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "ssh2": "^1.15.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "@types/ssh2": "^1.11.19",
+    "concurrently": "^8.2.2",
+    "electron": "^29.1.0",
+    "electron-builder": "^24.13.3",
+    "react-scripts": "5.0.1",
+    "typescript": "^5",
+    "wait-on": "^7.2.0"
+  },
+  "browserslist": {
+    "production": [
+      "last 1 electron version"
+    ],
+    "development": [
+      "last 1 electron version"
+    ]
+  },
+  "build": {
+    "appId": "org.igigi.lucisshclient",
+    "productName": "鸬鹚SSH客户端",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "build/**/*",
+      "electron/**/*",
+      "node_modules/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "icon": "public/icon.icns",
+      "target": ["dmg", "zip"]
+    },
+    "win": {
+      "icon": "public/icon.ico",
+      "target": ["nsis", "portable"]
+    },
+    "linux": {
+      "icon": "public/icon.png",
+      "target": ["AppImage", "deb"]
+    }
+  },
+  "homepage": "."
+}
