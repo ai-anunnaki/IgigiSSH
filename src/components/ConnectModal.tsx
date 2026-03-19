@@ -96,6 +96,7 @@ export default function ConnectModal({ editHost, onConnect, onClose }: Props) {
         save: form.save,
         editId: editHost?.id   // 编辑时传原 id
       })
+      onClose()
     } catch (e: any) {
       setError(e.message || '连接失败')
       setConnecting(false)

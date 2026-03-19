@@ -47,7 +47,7 @@ export default function Sidebar({
       {/* 标题栏 */}
       <div style={{ padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 6, borderBottom: '1px solid var(--border)' }}>
         <span style={{ fontSize: 16 }}>🐦</span>
-        <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>鸬鹚SSH</span>
+        <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>igigi ssh</span>
         <button onClick={() => setCollapsed(true)} style={iconBtn} title="收起">◀</button>
       </div>
 

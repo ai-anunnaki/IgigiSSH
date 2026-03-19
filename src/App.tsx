@@ -226,7 +226,7 @@ function WelcomeScreen({ onConnect }: { onConnect: () => void }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 20, color: 'var(--text-secondary)' }}>
       <div style={{ fontSize: 64 }}>🐦</div>
-      <div style={{ fontSize: 22, color: 'var(--text-primary)', fontWeight: 600 }}>鸬鹚SSH客户端</div>
+      <div style={{ fontSize: 22, color: 'var(--text-primary)', fontWeight: 600 }}>igigi ssh client</div>
       <div style={{ fontSize: 14 }}>简洁 · 跨平台 · 支持拖拽文件传输</div>
       <button
         onClick={onConnect}

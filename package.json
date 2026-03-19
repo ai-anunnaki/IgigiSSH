@@ -1,8 +1,9 @@
 {
   "name": "luci-ssh-client",
   "version": "1.0.0",
-  "description": "鸬鹚SSH客户端 - 简洁、跨平台的SSH客户端，支持拖拽文件传输",
+  "description": "igigi ssh client - 简洁、跨平台的SSH客户端，支持拖拽文件传输",
   "main": "electron/main.js",
+  "author": "igigi team",
   "scripts": {
     "dev": "concurrently \"npm run dev:react\" \"wait-on http://localhost:3000 && npm run dev:electron\"",
     "dev:react": "react-scripts start",
@@ -43,15 +44,18 @@
   },
   "build": {
     "appId": "org.igigi.lucisshclient",
-    "productName": "鸬鹚SSH客户端",
+    "productName": "igigi ssh client",
     "directories": {
       "output": "dist"
     },
+    "extends": null,
     "files": [
       "build/**/*",
-      "electron/**/*",
-      "node_modules/**/*"
+      "electron/**/*"
     ],
+    "extraMetadata": {
+      "main": "electron/main.js"
+    },
     "mac": {
       "category": "public.app-category.developer-tools",
       "icon": "public/icon.icns",
