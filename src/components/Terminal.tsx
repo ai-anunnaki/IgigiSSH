@@ -124,7 +124,10 @@ export default function Terminal({ connId, active, onCwdChange }: Props) {
       const id = Math.random().toString(36).slice(2)
       const localPath = (file as any).path
       if (!localPath) continue
-      const remotePath = `${cwd}/${file.name}`
+
+      // 正确拼接远程路径：处理波浪号和路径分隔符
+      const cleanCwd = cwd === '~' ? '.' : cwd.replace(/\/$/, '')
+      const remotePath = `${cleanCwd}/${file.name}`
 
       setTransfers(prev => [...prev, { id, name: file.name, size: file.size, percent: 0, status: 'uploading' }])
       xtermRef.current?.write(`\r\n\x1b[36m[上传] ${file.name} → ${remotePath}\x1b[0m\r\n`)

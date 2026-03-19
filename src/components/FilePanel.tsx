@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 
 interface FileItem {
   name: string
@@ -17,34 +17,63 @@ interface TransferItem {
 interface Props {
   connId: string
   onClose: () => void
-  syncPath?: string  // 从终端同步过来的当前目录
 }
 
-export default function FilePanel({ connId, onClose, syncPath }: Props) {
+export default function FilePanel({ connId, onClose }: Props) {
   const [currentPath, setCurrentPath] = useState('/')
+  const [pathInput, setPathInput] = useState('/')  // 路径输入框的值
   const [files, setFiles] = useState<FileItem[]>([])
   const [loading, setLoading] = useState(false)
   const [transfers, setTransfers] = useState<TransferItem[]>([])
   const [isDragging, setIsDragging] = useState(false)
   const [selected, setSelected] = useState<string | null>(null)
-  const [syncEnabled, setSyncEnabled] = useState(true) // 是否启用目录同步
+  const [filesLoaded, setFilesLoaded] = useState(false)  // 文件列表加载完成动画
   const api = (window as any).electronAPI
 
-  const loadFiles = useCallback(async (path: string) => {
-    setLoading(true)
-    try {
-      const result = await api.sftpList(connId, path)
-      setFiles(result.files.sort((a: FileItem, b: FileItem) => {
-        if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1
-        return a.name.localeCompare(b.name)
-      }))
+  // 缓存：path -> FileItem[]
+  const cacheRef = useRef<Map<string, FileItem[]>>(new Map())
+  const loadingRef = useRef<Map<string, Promise<void>>>(new Map())
+
+  const loadFiles = useCallback(async (path: string, force = false) => {
+    // 检查缓存
+    if (!force && cacheRef.current.has(path)) {
+      setFiles(cacheRef.current.get(path)!)
       setCurrentPath(path)
-    } catch (err) {
-      console.error('Failed to list files:', err)
-    } finally {
-      setLoading(false)
+      return
     }
-  }, [connId])
+
+    // 避免重复请求同一目录
+    const existingRequest = loadingRef.current.get(path)
+    if (existingRequest) {
+      await existingRequest
+      return
+    }
+
+    setLoading(true)
+    setFilesLoaded(false)
+    const request = (async () => {
+      try {
+        const result = await api.sftpList(connId, path)
+        const sortedFiles = result.files.sort((a: FileItem, b: FileItem) => {
+          if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1
+          return a.name.localeCompare(b.name)
+        })
+        cacheRef.current.set(path, sortedFiles)
+        setFiles(sortedFiles)
+        setCurrentPath(path)
+        // 延迟设置 filesLoaded，让文件列表有淡入效果
+        request.then(() => setTimeout(() => setFilesLoaded(true), 50))
+      } catch (err) {
+        console.error('Failed to list files:', err)
+      } finally {
+        setLoading(false)
+        loadingRef.current.delete(path)
+      }
+    })()
+
+    loadingRef.current.set(path, request)
+    await request
+  }, [connId, api])
 
   useEffect(() => {
     loadFiles('/')
@@ -56,12 +85,19 @@ export default function FilePanel({ connId, onClose, syncPath }: Props) {
     })
   }, [])
 
-  // 监听终端目录变化，同步文件面板
+  // 路径输入确认
+  const handlePathSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const path = pathInput.trim() || '/'
+    const normalizedPath = path === '/' ? '/' : path.replace(/\/$/, '')
+    setPathInput(normalizedPath)
+    loadFiles(normalizedPath)
+  }
+
+  // currentPath 变化时同步 pathInput
   useEffect(() => {
-    if (syncEnabled && syncPath && syncPath !== currentPath) {
-      loadFiles(syncPath)
-    }
-  }, [syncPath, syncEnabled])
+    setPathInput(currentPath)
+  }, [currentPath])
 
   // 拖拽上传
   const handleDragOver = (e: React.DragEvent) => {
@@ -88,7 +124,9 @@ export default function FilePanel({ connId, onClose, syncPath }: Props) {
       try {
         await api.sftpUpload(connId, localPath, currentPath)
         setTransfers(prev => prev.map(t => t.id === transferId ? { ...t, percent: 100, status: 'done' } : t))
-        loadFiles(currentPath)
+        // 清除当前目录缓存并强制刷新
+        cacheRef.current.delete(currentPath)
+        await loadFiles(currentPath, true)
       } catch (err: any) {
         setTransfers(prev => prev.map(t => t.id === transferId ? { ...t, status: 'error' } : t))
       }
@@ -135,7 +173,9 @@ export default function FilePanel({ connId, onClose, syncPath }: Props) {
       try {
         await api.sftpUpload(connId, localPath, currentPath)
         setTransfers(prev => prev.map(t => t.id === transferId ? { ...t, percent: 100, status: 'done' } : t))
-        loadFiles(currentPath)
+        // 清除当前目录缓存并强制刷新
+        cacheRef.current.delete(currentPath)
+        await loadFiles(currentPath, true)
       } catch (err: any) {
         setTransfers(prev => prev.map(t => t.id === transferId ? { ...t, status: 'error' } : t))
       }
@@ -151,7 +191,9 @@ export default function FilePanel({ connId, onClose, syncPath }: Props) {
     const remotePath = `${currentPath}/${file.name}`.replace('//', '/')
     try {
       await api.sftpDelete(connId, remotePath, file.isDirectory)
-      loadFiles(currentPath)
+      // 清除当前目录缓存并强制刷新
+      cacheRef.current.delete(currentPath)
+      await loadFiles(currentPath, true)
     } catch (err) {
       alert('删除失败')
     }
@@ -183,19 +225,6 @@ export default function FilePanel({ connId, onClose, syncPath }: Props) {
       {/* 头部 */}
       <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>📁 文件管理</span>
-        {/* 目录同步开关 */}
-        <button
-          onClick={() => setSyncEnabled(p => !p)}
-          title={syncEnabled ? '同步终端目录（点击关闭）' : '已关闭同步（点击开启）'}
-          style={{
-            ...smallBtn,
-            color: syncEnabled ? 'var(--success)' : 'var(--text-secondary)',
-            background: syncEnabled ? 'rgba(80,250,123,0.1)' : 'var(--bg-hover)',
-            fontSize: 11, fontWeight: 600
-          }}
-        >
-          {syncEnabled ? '⇄ 同步' : '⇄ 手动'}
-        </button>
         <button onClick={handleUpload} style={smallBtn} title="上传文件">⬆</button>
         <button onClick={() => loadFiles(currentPath)} style={smallBtn} title="刷新">↺</button>
         <button onClick={onClose} style={{ ...smallBtn, color: 'var(--danger)' }}>✕</button>
@@ -204,9 +233,19 @@ export default function FilePanel({ connId, onClose, syncPath }: Props) {
       {/* 路径栏 */}
       <div style={{ padding: '6px 10px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 6 }}>
         <button onClick={() => navigateTo('..')} disabled={currentPath === '/'} style={{ ...smallBtn, opacity: currentPath === '/' ? 0.3 : 1 }}>←</button>
-        <span style={{ flex: 1, fontSize: 11, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {currentPath}
-        </span>
+        <form onSubmit={handlePathSubmit} style={{ flex: 1, display: 'flex' }}>
+          <input
+            type="text"
+            value={pathInput}
+            onChange={(e) => setPathInput(e.target.value)}
+            style={{
+              flex: 1, fontSize: 11, color: 'var(--text-primary)',
+              background: 'var(--bg-hover)', border: '1px solid var(--border)',
+              borderRadius: 3, padding: '2px 6px', outline: 'none',
+            }}
+            onFocus={(e) => e.target.select()}
+          />
+        </form>
       </div>
 
       {/* 拖拽上传区域 + 文件列表 */}
@@ -231,44 +270,57 @@ export default function FilePanel({ connId, onClose, syncPath }: Props) {
         )}
 
         {loading ? (
-          <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 12 }}>加载中...</div>
+          <div style={{ padding: 20, textAlign: 'center' }}>
+            <div style={{
+              width: 24, height: 24, border: '2px solid var(--border)',
+              borderTopColor: 'var(--accent)', borderRadius: '50%',
+              animation: 'spin 0.8s linear infinite', margin: '0 auto 8px'
+            }} />
+            <div style={{ color: 'var(--text-secondary)', fontSize: 11 }}>加载中...</div>
+          </div>
         ) : files.length === 0 ? (
           <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 12 }}>空文件夹</div>
         ) : (
-          files.map(file => (
-            <div
-              key={file.name}
-              onDoubleClick={() => file.isDirectory && navigateTo(file.name)}
-              onClick={() => setSelected(file.name)}
-              style={{
-                padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 8,
-                background: selected === file.name ? 'var(--bg-hover)' : 'transparent',
-                cursor: file.isDirectory ? 'pointer' : 'default',
-                borderBottom: '1px solid rgba(42,42,74,0.5)',
-              }}
-            >
-              <span style={{ fontSize: 14, flexShrink: 0 }}>{file.isDirectory ? '📁' : '📄'}</span>
-              <span style={{
-                flex: 1, fontSize: 12, color: 'var(--text-primary)',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-              }}>{file.name}</span>
-              {!file.isDirectory && (
-                <span style={{ fontSize: 10, color: 'var(--text-secondary)', flexShrink: 0 }}>{formatSize(file.size)}</span>
-              )}
-              <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+          <div style={{
+            opacity: filesLoaded ? 1 : 0,
+            transform: filesLoaded ? 'translateY(0)' : 'translateY(8px)',
+            transition: 'opacity 0.25s ease, transform 0.25s ease',
+          }}>
+            {files.map(file => (
+              <div
+                key={file.name}
+                onDoubleClick={() => file.isDirectory && navigateTo(file.name)}
+                onClick={() => setSelected(file.name)}
+                style={{
+                  padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 8,
+                  background: selected === file.name ? 'var(--bg-hover)' : 'transparent',
+                  cursor: file.isDirectory ? 'pointer' : 'default',
+                  borderBottom: '1px solid rgba(42,42,74,0.5)',
+                }}
+              >
+                <span style={{ fontSize: 14, flexShrink: 0 }}>{file.isDirectory ? '📁' : '📄'}</span>
+                <span style={{
+                  flex: 1, fontSize: 12, color: 'var(--text-primary)',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                }}>{file.name}</span>
                 {!file.isDirectory && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleDownload(file) }}
-                    style={microBtn} title="下载"
-                  >⬇</button>
+                  <span style={{ fontSize: 10, color: 'var(--text-secondary)', flexShrink: 0 }}>{formatSize(file.size)}</span>
                 )}
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleDelete(file) }}
-                  style={{ ...microBtn, color: 'var(--danger)' }} title="删除"
-                >✕</button>
+                <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                  {!file.isDirectory && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDownload(file) }}
+                      style={microBtn} title="下载"
+                    >⬇</button>
+                  )}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDelete(file) }}
+                    style={{ ...microBtn, color: 'var(--danger)' }} title="删除"
+                  >✕</button>
+                </div>
               </div>
-            </div>
-          ))
+            ))}
+          </div>
         )}
       </div>
 
@@ -301,6 +353,7 @@ export default function FilePanel({ connId, onClose, syncPath }: Props) {
           ))}
         </div>
       )}
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 }

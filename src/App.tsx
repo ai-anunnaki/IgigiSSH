@@ -204,7 +204,6 @@ export default function App() {
         {showFilePanel && activeConn?.connId && (
           <FilePanel
             connId={activeConn.connId}
-            syncPath={activeConn.cwd}
             onClose={() => setShowFilePanel(false)}
           />
         )}

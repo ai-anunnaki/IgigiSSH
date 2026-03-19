@@ -44,7 +44,7 @@
   },
   "build": {
     "appId": "org.igigi.lucisshclient",
-    "productName": "igigi ssh client",
+    "productName": "igigi-ssh-client",
     "directories": {
       "output": "dist"
     },

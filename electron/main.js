@@ -94,6 +94,7 @@ ipcMain.handle('ssh:connect', async (event, config) => {
             const newCwd = decodeURIComponent(oscMatch[1]).trim()
             if (newCwd && newCwd !== lastCwd) {
               lastCwd = newCwd
+              stream.lastCwd = newCwd  // 保存到 session
               mainWindow.webContents.send(`ssh:cwd:${connId}`, newCwd)
             }
           }
