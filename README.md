@@ -1,4 +1,4 @@
-# 鸬鹚SSH客户端 LuciSSHClient
+# IgigiSSH客户端 IgigiSSHClient
 
 简洁、跨平台的 SSH 客户端，支持拖拽文件传输。
 
@@ -49,7 +49,7 @@ npx electron-builder --linux
 ## 项目结构
 
 ```
-LuciSSHClient/
+IgigiSSHClient/
 ├── electron/
 │   ├── main.js          # Electron主进程（SSH/SFTP逻辑）
 │   └── preload.js       # 安全桥接层
@@ -86,7 +86,7 @@ LuciSSHClient/
 
 ## Bundle ID
 
-`org.igigi.lucisshclient`
+`org.igigi.Igigisshclient`
 
 ## 许可证
 
@@ -94,5 +94,5 @@ MIT License © 2026 Igigi
 
 ## 联系方式
 
-- GitHub: https://github.com/ai-anunnaki/LuciSSHClient
+- GitHub: https://github.com/ai-anunnaki/IgigiSSHClient
 - Website: https://igigi.org
